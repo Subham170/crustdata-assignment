@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum CandidateStatus {
+  UPLOADED
+  PARSING
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+model Candidate {
+  id          String          @id @default(uuid())
+  name        String?
+  email       String?
+  resumeUrl   String          @map("resume_url")
+  linkedinUrl String?         @map("linkedin_url")
+  status      CandidateStatus @default(UPLOADED)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  experiences   Experience[]
+  growthReports GrowthReport[]
+
+  @@map("candidates")
+}
+
+model Experience {
+  id                 String    @id @default(uuid())
+  candidateId        String    @map("candidate_id")
+  companyName        String    @map("company_name")
+  role               String?
+  startDate          DateTime? @map("start_date")
+  endDate            DateTime? @map("end_date")
+  crustdataCompanyId Int?      @map("crustdata_company_id")
+  companyGrowthId    String?   @map("company_growth_id")
+
+  candidate     Candidate      @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  companyGrowth CompanyGrowth? @relation(fields: [companyGrowthId], references: [id])
+
+  @@map("experiences")
+}
+
+model CompanyGrowth {
+  id                 String   @id @default(uuid())
+  companyName        String   @map("company_name")
+  crustdataCompanyId Int?     @unique @map("crustdata_company_id")
+  primaryDomain      String?  @map("primary_domain")
+  employeeGrowth6m   Float?   @map("employee_growth_6m")
+  employeeGrowth12m  Float?   @map("employee_growth_12m")
+  headcountTotal     Int?     @map("headcount_total")
+  totalInvestmentUsd Float?   @map("total_investment_usd")
+  yearFounded        Int?     @map("year_founded")
+  industry           String?
+  rawPayload         Json?    @map("raw_payload")
+  lastUpdated        DateTime @default(now()) @map("last_updated")
+
+  experiences Experience[]
+
+  @@index([companyName])
+  @@map("company_growth")
+}
+
+model GrowthReport {
+  id             String   @id @default(uuid())
+  candidateId    String   @map("candidate_id")
+  growthScore    Int      @map("growth_score")
+  scoreBand      String   @map("score_band")
+  aiSummary      String?  @map("ai_summary") @db.Text
+  signals        Json?
+  employerScores Json?    @map("employer_scores")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@map("growth_reports")
+}
