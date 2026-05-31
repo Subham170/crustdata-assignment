@@ -1,12 +1,14 @@
 import { z } from 'zod';
 import { asyncHandler, notFound, validationError } from '../middlewares/errorHandler.js';
 import { getResumeRelativePath } from '../middlewares/upload.js';
+import { sanitizeUrl } from '../utils/sanitize.js';
 import {
   createCandidate,
   formatCandidateResponse,
   getCandidateById,
 } from '../services/candidateService.js';
 import { analyzeCandidate as runCandidateAnalysis } from '../services/analysisOrchestrator.js';
+import { compareCandidates } from '../services/comparisonService.js';
 
 const linkedinUrlSchema = z
   .string()
@@ -26,7 +28,7 @@ export const uploadCandidate = asyncHandler(async (req, res) => {
     );
   }
 
-  const linkedinUrl = linkedinResult.data || null;
+  const linkedinUrl = sanitizeUrl(linkedinResult.data || '');
   const resumeUrl = getResumeRelativePath(req.file.filename);
 
   const candidate = await createCandidate({ resumeUrl, linkedinUrl });
@@ -39,6 +41,11 @@ export const uploadCandidate = asyncHandler(async (req, res) => {
 
 export const analyzeCandidate = asyncHandler(async (req, res) => {
   const result = await runCandidateAnalysis(req.body.candidateId);
+  res.json(result);
+});
+
+export const compareCandidate = asyncHandler(async (req, res) => {
+  const result = await compareCandidates(req.body.candidate1, req.body.candidate2);
   res.json(result);
 });
 

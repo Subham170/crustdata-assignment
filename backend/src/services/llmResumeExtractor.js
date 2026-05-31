@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 
 const extractionSchema = z.object({
   name: z.string().nullable().optional(),
@@ -73,7 +74,7 @@ export async function extractResumeWithLlm(rawText) {
       })),
     };
   } catch (error) {
-    console.warn('LLM resume extraction failed:', error.message);
+    logger.warn({ err: error.message }, 'LLM resume extraction failed');
     return null;
   }
 }

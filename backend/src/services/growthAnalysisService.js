@@ -1,5 +1,7 @@
 import pLimit from 'p-limit';
 import { prisma } from '../config/db.js';
+import { logger } from '../config/logger.js';
+import { sanitizeCompanyName } from '../utils/sanitize.js';
 import { getRedis } from '../config/redis.js';
 import { identifyByName, enrichCompany } from '../clients/crustdataClient.js';
 import {
@@ -16,10 +18,11 @@ const enrichLimit = pLimit(3);
  * @returns {Promise<{ status: 'resolved', record: object, source: string } | { status: 'failed', companyName: string, error: string }>}
  */
 export async function resolveAndEnrichEmployer(companyName) {
-  const normalized = normalizeCompanyName(companyName);
+  const safeName = sanitizeCompanyName(companyName) ?? companyName;
+  const normalized = normalizeCompanyName(safeName);
 
   try {
-    for (const candidate of getIdentifyNameCandidates(companyName)) {
+    for (const candidate of getIdentifyNameCandidates(safeName)) {
       const cachedIdentify = await getCachedIdentify(candidate);
       if (cachedIdentify?.crustdataCompanyId) {
         const cachedGrowth = await getCachedGrowthById(cachedIdentify.crustdataCompanyId);
@@ -53,7 +56,7 @@ export async function resolveAndEnrichEmployer(companyName) {
       }
     }
 
-    const identifyCandidates = getIdentifyNameCandidates(companyName);
+    const identifyCandidates = getIdentifyNameCandidates(safeName);
     let identified = null;
 
     for (const candidate of identifyCandidates) {
@@ -74,25 +77,26 @@ export async function resolveAndEnrichEmployer(companyName) {
     if (!identified) {
       return {
         status: 'failed',
-        companyName,
+        companyName: safeName,
         error: 'No confident company match from Crustdata identify',
       };
     }
 
-    const record = await enrichAndUpsert(identified.crustdataCompanyId, companyName);
+    const record = await enrichAndUpsert(identified.crustdataCompanyId, safeName);
     if (!record) {
       return {
         status: 'failed',
-        companyName,
+        companyName: safeName,
         error: 'Company enrich returned no data',
       };
     }
 
     return { status: 'resolved', record, source: 'identify+enrich' };
   } catch (error) {
+    logger.warn({ companyName: safeName, err: error.message }, 'Employer enrichment failed');
     return {
       status: 'failed',
-      companyName,
+      companyName: safeName,
       error: error.message ?? 'Company enrichment failed',
     };
   }

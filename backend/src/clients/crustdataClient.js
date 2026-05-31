@@ -1,8 +1,12 @@
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 import { AppError } from '../middlewares/errorHandler.js';
 
 const IDENTIFY_CONFIDENCE_THRESHOLD = 0.5;
 const ENRICH_FIELDS = ['basic_info', 'headcount', 'funding'];
+const MIN_REQUEST_INTERVAL_MS = 4000;
+
+let lastRequestAt = 0;
 
 /**
  * @param {string} path
@@ -12,6 +16,8 @@ async function crustdataRequest(path, body) {
   if (!env.CRUSTDATA_API_KEY) {
     throw new AppError('Crustdata API key is not configured', 502);
   }
+
+  await throttleCrustdata();
 
   const response = await fetch(`${env.CRUSTDATA_BASE_URL}${path}`, {
     method: 'POST',
@@ -41,12 +47,40 @@ async function crustdataRequest(path, body) {
   return payload;
 }
 
+async function throttleCrustdata() {
+  const now = Date.now();
+  const waitMs = Math.max(0, MIN_REQUEST_INTERVAL_MS - (now - lastRequestAt));
+  if (waitMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+  lastRequestAt = Date.now();
+}
+
+/**
+ * @param {string} path
+ * @param {Record<string, unknown>} body
+ * @param {number} [attempt]
+ */
+async function crustdataRequestWithRetry(path, body, attempt = 0) {
+  try {
+    return await crustdataRequest(path, body);
+  } catch (error) {
+    if (error.statusCode === 503 && attempt < 1) {
+      const retryAfter = (error.details?.retryAfter ?? 60) * 1000;
+      logger.warn({ path, retryAfter }, 'Crustdata rate limited, retrying');
+      await new Promise((resolve) => setTimeout(resolve, Math.min(retryAfter, 15000)));
+      return crustdataRequestWithRetry(path, body, attempt + 1);
+    }
+    throw error;
+  }
+}
+
 /**
  * @param {string} companyName
  * @returns {Promise<{ crustdataCompanyId: number, confidenceScore: number, basicInfo: object } | null>}
  */
 export async function identifyByName(companyName) {
-  const results = await crustdataRequest('/company/identify', {
+  const results = await crustdataRequestWithRetry('/company/identify', {
     names: [companyName],
   });
 
@@ -77,7 +111,7 @@ export async function identifyByName(companyName) {
  * @param {string[]} [fields]
  */
 export async function enrichCompany(companyId, fields = ENRICH_FIELDS) {
-  const results = await crustdataRequest('/company/enrich', {
+  const results = await crustdataRequestWithRetry('/company/enrich', {
     crustdata_company_ids: [companyId],
     fields,
   });

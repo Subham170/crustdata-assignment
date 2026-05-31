@@ -76,6 +76,32 @@ export async function persistParsedResume(candidateId, parsed) {
   });
 }
 
+/**
+ * @param {string} candidateId
+ * @param {{ growthScore: number, scoreBand: string, employerScores: object, aiSummary?: string | null, signals?: object | null }} report
+ */
+export async function saveGrowthReport(candidateId, report) {
+  await prisma.$transaction(async (tx) => {
+    await tx.growthReport.deleteMany({ where: { candidateId } });
+
+    await tx.growthReport.create({
+      data: {
+        candidateId,
+        growthScore: report.growthScore,
+        scoreBand: report.scoreBand,
+        employerScores: report.employerScores,
+        aiSummary: report.aiSummary ?? null,
+        signals: report.signals ?? null,
+      },
+    });
+
+    await tx.candidate.update({
+      where: { id: candidateId },
+      data: { status: 'COMPLETED' },
+    });
+  });
+}
+
 export function formatCandidateResponse(candidate) {
   const [latestReport] = candidate.growthReports;
 
