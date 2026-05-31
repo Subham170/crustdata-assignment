@@ -1,6 +1,5 @@
-import fs from 'fs/promises';
-import { PDFParse } from 'pdf-parse';
 import { parseResumeDate } from '../utils/dateUtils.js';
+import { extractPdfText } from '../utils/pdfText.js';
 import { logger } from '../config/logger.js';
 import { extractResumeWithLlm } from './llmResumeExtractor.js';
 
@@ -26,15 +25,22 @@ const SKIP_LINE_REGEX =
  * @returns {Promise<{ name: string | null, email: string | null, experiences: Array<{ companyName: string, role: string | null, startDate: string | null, endDate: string | null }> }>}
  */
 export async function parseResumeFile(filePath) {
-  const buffer = await fs.readFile(filePath);
-  const parser = new PDFParse({ data: buffer });
+  const text = await extractPdfText(filePath);
+  return parseResumeFromText(text);
+}
 
-  try {
-    const result = await parser.getText();
-    return parseResumeFromText(result.text);
-  } finally {
-    await parser.destroy();
+/**
+ * Lightweight parse for upload — name/email via heuristics (no LLM call).
+ * @param {string} filePath
+ */
+export async function previewResumeFromFile(filePath) {
+  const text = await extractPdfText(filePath);
+  if (!text || text.trim().length < 20) {
+    logger.warn({ textLength: text?.length ?? 0 }, 'PDF text extraction returned little content');
+    return { name: null, email: null };
   }
+  const parsed = parseResumeText(text);
+  return { name: parsed.name, email: parsed.email };
 }
 
 /**
@@ -42,6 +48,11 @@ export async function parseResumeFile(filePath) {
  * @param {string} rawText
  */
 export async function parseResumeFromText(rawText) {
+  if (!rawText || rawText.trim().length < 20) {
+    logger.warn({ textLength: rawText?.length ?? 0 }, 'Resume text too short to parse');
+    return { name: null, email: null, experiences: [] };
+  }
+
   const heuristic = parseResumeText(rawText);
   const llmParsed = await extractResumeWithLlm(rawText);
 
@@ -87,7 +98,10 @@ export function parseResumeText(rawText) {
 
   const email = extractEmail(text);
   const name = extractName(lines, email);
-  const experiences = extractExperiences(lines);
+  let experiences = extractExperiences(lines);
+  if (experiences.length === 0) {
+    experiences = extractExperiencesByDateScan(text);
+  }
 
   return {
     name,
@@ -101,13 +115,33 @@ export function parseResumeText(rawText) {
   };
 }
 
+const MONTH_YEAR_RANGE_REGEX =
+  /\s+((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}\s*[-–—to]+\s*(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|Present|Current|Now|Ongoing)/gi;
+
 function normalizeText(text) {
-  return text
+  let normalized = text
     .replace(/\r\n/g, '\n')
     .replace(/\u00a0/g, ' ')
-    .replace(/[ \t]+/g, ' ')
+    .replace(/\f/g, '\n');
+
+  normalized = insertLineBreaks(normalized);
+
+  return normalized
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function insertLineBreaks(text) {
+  return text
+    .replace(
+      /\b(EXPERIENCE|WORK\s+HISTORY|PROFESSIONAL\s+EXPERIENCE|EMPLOYMENT(?:\s+HISTORY)?|CAREER\s+HISTORY|INTERNSHIPS?|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS)\b/gi,
+      '\n$1\n'
+    )
+    .replace(MONTH_YEAR_RANGE_REGEX, '\n$1');
 }
 
 function extractEmail(text) {

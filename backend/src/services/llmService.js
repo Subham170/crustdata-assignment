@@ -54,7 +54,7 @@ async function callGeminiInsights(payload) {
 
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: env.GEMINI_MODEL,
     generationConfig: {
       responseMimeType: 'application/json',
       temperature: 0.2,
@@ -140,7 +140,7 @@ export async function generateComparisonRecommendation(comparisonPayload) {
 
     const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: env.GEMINI_MODEL,
       generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
     });
 

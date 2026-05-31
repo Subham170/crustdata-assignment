@@ -11,6 +11,7 @@ const envSchema = z.object({
   CRUSTDATA_API_VERSION: z.string().default('2025-11-01'),
   CRUSTDATA_BASE_URL: z.string().url().default('https://api.crustdata.com'),
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash-lite'),
   UPLOAD_DIR: z.string().default('./uploads'),
   MAX_FILE_SIZE_MB: z.coerce.number().default(5),
 });

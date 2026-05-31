@@ -135,6 +135,7 @@ Upload resume A  →  Analyze A  →  Upload resume B  →  Analyze B  →  Comp
 | `REDIS_URL` | No | Default `redis://localhost:6379` |
 | `CRUSTDATA_API_KEY` | Yes* | Crustdata API key |
 | `GEMINI_API_KEY` | No** | AI summary (template fallback if missing) |
+| `GEMINI_MODEL` | No | Default `gemini-2.5-flash-lite` (resume parse, insights, compare) |
 | `UPLOAD_DIR` | No | Default `./uploads` |
 | `MAX_FILE_SIZE_MB` | No | Default `5` |
 

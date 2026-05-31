@@ -59,7 +59,7 @@ export async function extractResumeWithLlm(rawText) {
   try {
     const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: env.GEMINI_MODEL,
       generationConfig: {
         responseMimeType: 'application/json',
         temperature: 0.1,
