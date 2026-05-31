@@ -25,6 +25,8 @@ app.get('/', (_req, res) => {
     health: '/api/health',
     endpoints: {
       listCandidates: 'GET /api/candidates',
+      updateCandidate: 'PATCH /api/candidates/:id',
+      deleteCandidate: 'DELETE /api/candidates/:id',
       upload: 'POST /api/candidates/upload',
       analyze: 'POST /api/candidates/analyze',
       compare: 'POST /api/candidates/compare',

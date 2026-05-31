@@ -38,8 +38,28 @@ export async function analyzeCandidate(candidateId) {
   return parseResponse(response);
 }
 
-export async function listCandidates() {
-  const response = await fetch(`${API_BASE}/api/candidates`, { cache: 'no-store' });
+export async function listCandidates(limit = 100) {
+  const response = await fetch(`${API_BASE}/api/candidates?limit=${limit}`, {
+    cache: 'no-store',
+  });
+  return parseResponse(response);
+}
+
+export async function updateCandidate(candidateId, data) {
+  const response = await fetch(`${API_BASE}/api/candidates/${candidateId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  return parseResponse(response);
+}
+
+export async function deleteCandidate(candidateId) {
+  const response = await fetch(`${API_BASE}/api/candidates/${candidateId}`, {
+    method: 'DELETE',
+  });
+
   return parseResponse(response);
 }
 

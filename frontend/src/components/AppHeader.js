@@ -22,6 +22,12 @@ export default function AppHeader() {
             Upload
           </Link>
           <Link
+            href="/candidates"
+            className="rounded-lg px-3 py-2 transition hover:bg-slate-100 hover:text-slate-900"
+          >
+            Candidates
+          </Link>
+          <Link
             href="/compare"
             className="rounded-lg px-3 py-2 transition hover:bg-slate-100 hover:text-slate-900"
           >

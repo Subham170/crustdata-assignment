@@ -4,9 +4,11 @@ import { getResumeAbsolutePath, getResumeRelativePath } from '../middlewares/upl
 import { sanitizeUrl } from '../utils/sanitize.js';
 import {
   createCandidate,
+  deleteCandidate,
   formatCandidateResponse,
   getCandidateById,
   listCandidates,
+  updateCandidate,
   updateCandidateProfile,
 } from '../services/candidateService.js';
 import { previewResumeFromFile } from '../services/resumeParserService.js';
@@ -69,9 +71,48 @@ export const compareCandidate = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
-export const listCandidatesHandler = asyncHandler(async (_req, res) => {
-  const candidates = await listCandidates();
+export const listCandidatesHandler = asyncHandler(async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 200);
+  const candidates = await listCandidates(limit);
   res.json({ candidates });
+});
+
+export const updateCandidateHandler = asyncHandler(async (req, res) => {
+  const existing = await getCandidateById(req.params.id);
+  if (!existing) {
+    throw notFound('Candidate not found');
+  }
+
+  const body = req.body ?? {};
+  const linkedinUrl =
+    body.linkedinUrl !== undefined ? sanitizeUrl(body.linkedinUrl || '') : undefined;
+
+  const updated = await updateCandidate(req.params.id, {
+    name: body.name,
+    email: body.email === '' ? null : body.email,
+    linkedinUrl,
+  });
+
+  res.json({
+    candidate: {
+      id: updated.id,
+      name: updated.name,
+      email: updated.email,
+      linkedinUrl: updated.linkedinUrl,
+      status: updated.status.toLowerCase(),
+      updatedAt: updated.updatedAt,
+    },
+  });
+});
+
+export const deleteCandidateHandler = asyncHandler(async (req, res) => {
+  const deleted = await deleteCandidate(req.params.id);
+
+  if (!deleted) {
+    throw notFound('Candidate not found');
+  }
+
+  res.json({ success: true, candidateId: deleted.id });
 });
 
 export const getCandidate = asyncHandler(async (req, res) => {

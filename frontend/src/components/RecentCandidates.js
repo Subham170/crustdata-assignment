@@ -42,9 +42,17 @@ export default function RecentCandidates() {
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100/80">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Recent candidates
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Recent candidates
+        </h2>
+        <Link
+          href="/candidates"
+          className="text-xs font-medium text-slate-600 hover:text-slate-900"
+        >
+          View all
+        </Link>
+      </div>
       <ul className="mt-4 space-y-2">
         {items.map((item) => (
           <li key={item.id}>

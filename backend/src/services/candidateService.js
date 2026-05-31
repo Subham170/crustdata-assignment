@@ -1,5 +1,7 @@
+import fs from 'fs/promises';
 import { prisma } from '../config/db.js';
 import { parseResumeDate } from '../utils/dateUtils.js';
+import { getResumeAbsolutePath } from '../middlewares/upload.js';
 
 export async function createCandidate({ resumeUrl, linkedinUrl }) {
   return prisma.candidate.create({
@@ -27,7 +29,7 @@ export async function updateCandidateProfile(candidateId, profile) {
   });
 }
 
-export async function listCandidates(limit = 20) {
+export async function listCandidates(limit = 100) {
   const candidates = await prisma.candidate.findMany({
     orderBy: { updatedAt: 'desc' },
     take: limit,
@@ -45,12 +47,49 @@ export async function listCandidates(limit = 20) {
       id: candidate.id,
       name: candidate.name,
       email: candidate.email,
+      linkedinUrl: candidate.linkedinUrl,
       status: candidate.status.toLowerCase(),
       growthScore: report?.growthScore ?? null,
       scoreBand: report?.scoreBand ?? null,
+      createdAt: candidate.createdAt,
       updatedAt: candidate.updatedAt,
     };
   });
+}
+
+/**
+ * @param {string} candidateId
+ * @param {{ name?: string | null, email?: string | null, linkedinUrl?: string | null }} fields
+ */
+export async function updateCandidate(candidateId, fields) {
+  const data = {};
+  if (fields.name !== undefined) data.name = fields.name?.trim() || null;
+  if (fields.email !== undefined) data.email = fields.email?.trim() || null;
+  if (fields.linkedinUrl !== undefined) data.linkedinUrl = fields.linkedinUrl || null;
+  if (Object.keys(data).length === 0) return getCandidateById(candidateId);
+
+  return prisma.candidate.update({
+    where: { id: candidateId },
+    data,
+  });
+}
+
+/**
+ * @param {string} candidateId
+ */
+export async function deleteCandidate(candidateId) {
+  const candidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+  if (!candidate) return null;
+
+  await prisma.candidate.delete({ where: { id: candidateId } });
+
+  try {
+    await fs.unlink(getResumeAbsolutePath(candidate.resumeUrl));
+  } catch {
+    // Resume file may already be missing
+  }
+
+  return candidate;
 }
 
 export async function getCandidateById(id) {

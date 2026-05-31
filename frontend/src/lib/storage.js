@@ -29,3 +29,9 @@ export function updateRecentCandidate(id, updates) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
+
+export function removeRecentCandidate(id) {
+  const next = getRecentCandidates().filter((item) => item.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
+}

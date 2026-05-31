@@ -6,6 +6,8 @@ import {
   analyzeCandidate,
   compareCandidate,
   listCandidatesHandler,
+  updateCandidateHandler,
+  deleteCandidateHandler,
 } from '../controllers/candidateController.js';
 import { handleResumeUpload } from '../middlewares/upload.js';
 import { validateBody, validateParams } from '../middlewares/validateRequest.js';
@@ -34,7 +36,24 @@ const compareBodySchema = z
 router.post('/upload', handleResumeUpload, uploadCandidate);
 router.post('/analyze', analyzeRateLimiter, validateBody(analyzeBodySchema), analyzeCandidate);
 router.post('/compare', validateBody(compareBodySchema), compareCandidate);
+const updateBodySchema = z.object({
+  name: z.string().max(120).optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  linkedinUrl: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal('')),
+});
+
 router.get('/', listCandidatesHandler);
 router.get('/:id', validateParams(candidateIdSchema), getCandidate);
+router.patch(
+  '/:id',
+  validateParams(candidateIdSchema),
+  validateBody(updateBodySchema),
+  updateCandidateHandler
+);
+router.delete('/:id', validateParams(candidateIdSchema), deleteCandidateHandler);
 
 export default router;
