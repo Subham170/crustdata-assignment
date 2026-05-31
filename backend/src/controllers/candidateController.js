@@ -6,7 +6,7 @@ import {
   formatCandidateResponse,
   getCandidateById,
 } from '../services/candidateService.js';
-import { parseAndPersistCandidate } from '../services/analysisOrchestrator.js';
+import { analyzeCandidate as runCandidateAnalysis } from '../services/analysisOrchestrator.js';
 
 const linkedinUrlSchema = z
   .string()
@@ -38,7 +38,7 @@ export const uploadCandidate = asyncHandler(async (req, res) => {
 });
 
 export const analyzeCandidate = asyncHandler(async (req, res) => {
-  const result = await parseAndPersistCandidate(req.body.candidateId);
+  const result = await runCandidateAnalysis(req.body.candidateId);
   res.json(result);
 });
 

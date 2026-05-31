@@ -17,6 +17,7 @@ export async function getCandidateById(id) {
     include: {
       experiences: {
         orderBy: { startDate: 'desc' },
+        include: { companyGrowth: true },
       },
       growthReports: {
         orderBy: { createdAt: 'desc' },
@@ -95,6 +96,19 @@ export function formatCandidateResponse(candidate) {
       role: exp.role,
       startDate: exp.startDate,
       endDate: exp.endDate,
+      crustdataCompanyId: exp.crustdataCompanyId,
+      companyGrowth: exp.companyGrowth
+        ? {
+            id: exp.companyGrowth.id,
+            companyName: exp.companyGrowth.companyName,
+            employeeGrowth6m: exp.companyGrowth.employeeGrowth6m,
+            employeeGrowth12m: exp.companyGrowth.employeeGrowth12m,
+            headcountTotal: exp.companyGrowth.headcountTotal,
+            totalInvestmentUsd: exp.companyGrowth.totalInvestmentUsd,
+            yearFounded: exp.companyGrowth.yearFounded,
+            industry: exp.companyGrowth.industry,
+          }
+        : null,
     })),
     report: latestReport
       ? {

@@ -27,6 +27,9 @@ export function errorHandler(err, _req, res, _next) {
   if (err instanceof AppError) {
     const body = { error: err.message };
     if (err.details) body.details = err.details;
+    if (err.statusCode === 503 && err.details?.retryAfter) {
+      body.retryAfter = err.details.retryAfter;
+    }
     return res.status(err.statusCode).json(body);
   }
 

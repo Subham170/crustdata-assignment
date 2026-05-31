@@ -6,22 +6,27 @@ import {
   persistParsedResume,
   updateCandidateStatus,
 } from './candidateService.js';
+import {
+  formatEmployerGrowth,
+  linkExperiencesToGrowth,
+  resolveEmployersBatch,
+} from './growthAnalysisService.js';
 
 /**
- * Phase 3: parse resume and persist experiences (enrichment/scoring in later phases).
+ * Parse resume, enrich employers via Crustdata, and link experiences.
  * @param {string} candidateId
  */
-export async function parseAndPersistCandidate(candidateId) {
-  const candidate = await getCandidateById(candidateId);
+export async function analyzeCandidate(candidateId) {
+  const existing = await getCandidateById(candidateId);
 
-  if (!candidate) {
+  if (!existing) {
     throw notFound('Candidate not found');
   }
 
   await updateCandidateStatus(candidateId, 'PARSING');
 
   try {
-    const filePath = getResumeAbsolutePath(candidate.resumeUrl);
+    const filePath = getResumeAbsolutePath(existing.resumeUrl);
     const parsed = await parseResumeFile(filePath);
 
     if (!parsed.experiences.length) {
@@ -31,21 +36,36 @@ export async function parseAndPersistCandidate(candidateId) {
 
     const saved = await persistParsedResume(candidateId, parsed);
 
+    await updateCandidateStatus(candidateId, 'ANALYZING');
+
+    const companyNames = saved.experiences.map((exp) => exp.companyName);
+    const { resolved, warnings } = await resolveEmployersBatch(companyNames);
+
+    await linkExperiencesToGrowth(saved.experiences, resolved);
+    await updateCandidateStatus(candidateId, 'UPLOADED');
+
+    const refreshed = await getCandidateById(candidateId);
+
     return {
       candidateId,
-      status: saved.status.toLowerCase(),
-      name: saved.name,
-      email: saved.email,
-      experiences: saved.experiences.map((exp) => ({
+      status: refreshed.status.toLowerCase(),
+      name: refreshed.name,
+      email: refreshed.email,
+      experiences: refreshed.experiences.map((exp) => ({
         id: exp.id,
         companyName: exp.companyName,
         role: exp.role,
         startDate: exp.startDate,
         endDate: exp.endDate,
+        crustdataCompanyId: exp.crustdataCompanyId,
+        companyGrowthId: exp.companyGrowthId,
+        companyGrowth: exp.companyGrowth ? formatEmployerGrowth(exp.companyGrowth) : null,
       })),
+      employers: resolved.map(formatEmployerGrowth),
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   } catch (error) {
-    if (error.statusCode === 422) {
+    if (error.statusCode === 422 || error.statusCode === 503) {
       throw error;
     }
     await updateCandidateStatus(candidateId, 'FAILED');

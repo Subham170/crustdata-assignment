@@ -8,6 +8,8 @@ export function getRedis() {
     redis = new Redis(env.REDIS_URL, {
       maxRetriesPerRequest: 1,
       lazyConnect: true,
+      enableOfflineQueue: false,
+      retryStrategy: () => null,
     });
   }
   return redis;
