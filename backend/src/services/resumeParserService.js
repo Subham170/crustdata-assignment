@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import { PDFParse } from 'pdf-parse';
 import { parseResumeDate } from '../utils/dateUtils.js';
+import { logger } from '../config/logger.js';
 import { extractResumeWithLlm } from './llmResumeExtractor.js';
 
 const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
@@ -30,31 +31,50 @@ export async function parseResumeFile(filePath) {
 
   try {
     const result = await parser.getText();
-    return parseResumeWithFallback(result.text);
+    return parseResumeFromText(result.text);
   } finally {
     await parser.destroy();
   }
 }
 
 /**
+ * Primary: Gemini structured extraction. Fallback: regex/heuristics if LLM fails or is unavailable.
  * @param {string} rawText
  */
-export async function parseResumeWithFallback(rawText) {
-  const parsed = parseResumeText(rawText);
-
-  if (parsed.experiences.length > 0) {
-    return parsed;
-  }
-
+export async function parseResumeFromText(rawText) {
+  const heuristic = parseResumeText(rawText);
   const llmParsed = await extractResumeWithLlm(rawText);
-  if (!llmParsed?.experiences.length) {
-    return parsed;
+
+  if (llmParsed?.experiences.length) {
+    logger.info({ count: llmParsed.experiences.length }, 'Resume parsed via LLM');
+    return mergeParsedResults(heuristic, llmParsed);
   }
 
+  if (heuristic.experiences.length > 0) {
+    logger.info({ count: heuristic.experiences.length }, 'Resume parsed via regex fallback');
+    return heuristic;
+  }
+
+  logger.warn('No work history found by LLM or regex parser');
   return {
-    name: parsed.name ?? llmParsed.name,
-    email: parsed.email ?? llmParsed.email,
-    experiences: llmParsed.experiences,
+    name: llmParsed?.name ?? heuristic.name,
+    email: llmParsed?.email ?? heuristic.email,
+    experiences: [],
+  };
+}
+
+/** @deprecated Use parseResumeFromText */
+export const parseResumeWithFallback = parseResumeFromText;
+
+/**
+ * @param {ReturnType<parseResumeText>} heuristic
+ * @param {{ name: string | null, email: string | null, experiences: Array }} llm
+ */
+export function mergeParsedResults(heuristic, llm) {
+  return {
+    name: llm.name ?? heuristic.name,
+    email: llm.email ?? heuristic.email,
+    experiences: llm.experiences,
   };
 }
 

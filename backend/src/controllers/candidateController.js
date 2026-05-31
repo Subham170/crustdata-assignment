@@ -6,6 +6,7 @@ import {
   createCandidate,
   formatCandidateResponse,
   getCandidateById,
+  listCandidates,
 } from '../services/candidateService.js';
 import { analyzeCandidate as runCandidateAnalysis } from '../services/analysisOrchestrator.js';
 import { compareCandidates } from '../services/comparisonService.js';
@@ -47,6 +48,11 @@ export const analyzeCandidate = asyncHandler(async (req, res) => {
 export const compareCandidate = asyncHandler(async (req, res) => {
   const result = await compareCandidates(req.body.candidate1, req.body.candidate2);
   res.json(result);
+});
+
+export const listCandidatesHandler = asyncHandler(async (_req, res) => {
+  const candidates = await listCandidates();
+  res.json({ candidates });
 });
 
 export const getCandidate = asyncHandler(async (req, res) => {

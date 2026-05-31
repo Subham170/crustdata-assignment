@@ -1,0 +1,19 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+
+# next.js
+/.next/
+/out/
+
+# env
+.env*.local
+
+# debug
+npm-debug.log*
+.DS_Store
+
+# typescript (if generated)
+next-env.d.ts

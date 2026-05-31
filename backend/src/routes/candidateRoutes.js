@@ -5,6 +5,7 @@ import {
   getCandidate,
   analyzeCandidate,
   compareCandidate,
+  listCandidatesHandler,
 } from '../controllers/candidateController.js';
 import { handleResumeUpload } from '../middlewares/upload.js';
 import { validateBody, validateParams } from '../middlewares/validateRequest.js';
@@ -33,6 +34,7 @@ const compareBodySchema = z
 router.post('/upload', handleResumeUpload, uploadCandidate);
 router.post('/analyze', analyzeRateLimiter, validateBody(analyzeBodySchema), analyzeCandidate);
 router.post('/compare', validateBody(compareBodySchema), compareCandidate);
+router.get('/', listCandidatesHandler);
 router.get('/:id', validateParams(candidateIdSchema), getCandidate);
 
 export default router;

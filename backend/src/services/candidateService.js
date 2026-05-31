@@ -11,6 +11,32 @@ export async function createCandidate({ resumeUrl, linkedinUrl }) {
   });
 }
 
+export async function listCandidates(limit = 20) {
+  const candidates = await prisma.candidate.findMany({
+    orderBy: { updatedAt: 'desc' },
+    take: limit,
+    include: {
+      growthReports: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
+  });
+
+  return candidates.map((candidate) => {
+    const [report] = candidate.growthReports;
+    return {
+      id: candidate.id,
+      name: candidate.name,
+      email: candidate.email,
+      status: candidate.status.toLowerCase(),
+      growthScore: report?.growthScore ?? null,
+      scoreBand: report?.scoreBand ?? null,
+      updatedAt: candidate.updatedAt,
+    };
+  });
+}
+
 export async function getCandidateById(id) {
   return prisma.candidate.findUnique({
     where: { id },

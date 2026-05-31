@@ -24,6 +24,7 @@ app.get('/', (_req, res) => {
     version: '0.1.0',
     health: '/api/health',
     endpoints: {
+      listCandidates: 'GET /api/candidates',
       upload: 'POST /api/candidates/upload',
       analyze: 'POST /api/candidates/analyze',
       compare: 'POST /api/candidates/compare',

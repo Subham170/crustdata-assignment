@@ -31,6 +31,7 @@ Server URL: `http://localhost:${PORT}` (default **3001**; set `PORT=8000` in `.e
 | `GET` | `/api/health` | DB + Redis health |
 | `POST` | `/api/candidates/upload` | Upload PDF resume, create candidate |
 | `POST` | `/api/candidates/analyze` | Full pipeline (parse → enrich → score → AI) |
+| `GET` | `/api/candidates` | List recent candidates (for compare dropdown) |
 | `GET` | `/api/candidates/:id` | Get candidate, experiences, latest report |
 | `POST` | `/api/candidates/compare` | Compare two analyzed candidates |
 
@@ -211,7 +212,7 @@ backend/
 
 ## Features implemented
 
-- PDF resume parsing (heuristics + Gemini fallback)
+- PDF resume parsing (Gemini primary, regex/heuristics fallback)
 - Crustdata identify + enrich with Redis/DB cache
 - Growth Exposure Score per employer and aggregate
 - AI hiring summary + signals (Gemini + fallback)

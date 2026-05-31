@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseResumeText } from '../src/services/resumeParserService.js';
+import {
+  parseResumeText,
+  mergeParsedResults,
+} from '../src/services/resumeParserService.js';
 import { parseResumeDate, monthsBetween } from '../src/utils/dateUtils.js';
 import {
   standardResumeText,
@@ -31,7 +34,30 @@ describe('dateUtils', () => {
   });
 });
 
-describe('resumeParserService', () => {
+describe('resumeParserService merge', () => {
+  it('prefers LLM experiences and fills name/email from either source', () => {
+    const heuristic = parseResumeText(noExperienceResumeText);
+    const llm = {
+      name: 'Subham Dey',
+      email: 'subham@example.com',
+      experiences: [
+        {
+          companyName: 'LEAN AI',
+          role: 'Backend Engineer',
+          startDate: '2025-11',
+          endDate: '2026-01',
+        },
+      ],
+    };
+
+    const merged = mergeParsedResults(heuristic, llm);
+    assert.equal(merged.name, 'Subham Dey');
+    assert.equal(merged.experiences.length, 1);
+    assert.equal(merged.experiences[0].companyName, 'LEAN AI');
+  });
+});
+
+describe('resumeParserService regex fallback', () => {
   it('extracts name, email, and role-at-company experiences', () => {
     const parsed = parseResumeText(standardResumeText);
 

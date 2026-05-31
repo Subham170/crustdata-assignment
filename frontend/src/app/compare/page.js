@@ -1,0 +1,20 @@
+import { Suspense } from 'react';
+import ComparePanel from '@/components/ComparePanel';
+import LoadingBlock from '@/components/LoadingBlock';
+
+export default function ComparePage() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Compare candidates</h1>
+        <p className="mt-2 text-slate-600">
+          Side-by-side growth exposure metrics and a hiring recommendation.
+        </p>
+      </div>
+
+      <Suspense fallback={<LoadingBlock title="Loading…" />}>
+        <ComparePanel />
+      </Suspense>
+    </div>
+  );
+}
