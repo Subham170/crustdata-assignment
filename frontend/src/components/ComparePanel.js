@@ -6,16 +6,18 @@ import { useSearchParams } from 'next/navigation';
 import { compareCandidates, listCandidates } from '@/lib/api';
 import { getRecentCandidates } from '@/lib/storage';
 import { formatPercent } from '@/lib/format';
-import ScoreBadge from './ScoreBadge';
+import GrowthScoreDisplay from './GrowthScoreDisplay';
 import LoadingBlock from './LoadingBlock';
 import ErrorAlert from './ErrorAlert';
+
+const MAX_COMPARE = 10;
+const MIN_COMPARE = 2;
 
 export default function ComparePanel() {
   const searchParams = useSearchParams();
   const [candidates, setCandidates] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
-  const [candidate1, setCandidate1] = useState('');
-  const [candidate2, setCandidate2] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,29 +55,31 @@ export default function ComparePanel() {
 
     const presetA = searchParams.get('a');
     const presetB = searchParams.get('b');
-    if (presetA) setCandidate1(presetA);
-    if (presetB) setCandidate2(presetB);
+    const presets = [presetA, presetB].filter(Boolean);
+    if (presets.length) setSelectedIds(presets);
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!candidate2 && candidates.length > 1) {
-      const second = candidates.find((c) => c.id !== candidate1);
-      if (second) setCandidate2(second.id);
-    }
-  }, [candidates, candidate1, candidate2]);
+  const completedCandidates = candidates.filter((c) => c.status === 'completed');
 
-  const completedCount = candidates.filter((c) => c.status === 'completed').length;
+  function toggleCandidate(id) {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      }
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, id];
+    });
+  }
 
   async function handleCompare(event) {
     event.preventDefault();
 
-    if (!candidate1 || !candidate2) {
-      setError('Select both candidates.');
+    if (selectedIds.length < MIN_COMPARE) {
+      setError(`Select at least ${MIN_COMPARE} candidates.`);
       return;
     }
-
-    if (candidate1 === candidate2) {
-      setError('Choose two different candidates.');
+    if (selectedIds.length > MAX_COMPARE) {
+      setError(`You can compare at most ${MAX_COMPARE} candidates.`);
       return;
     }
 
@@ -84,7 +88,7 @@ export default function ComparePanel() {
     setResult(null);
 
     try {
-      const data = await compareCandidates(candidate1, candidate2);
+      const data = await compareCandidates(selectedIds);
       setResult(data);
     } catch (err) {
       setError(err.message);
@@ -93,13 +97,18 @@ export default function ComparePanel() {
     }
   }
 
+  const winnerProfile = result?.comparison?.candidates?.find(
+    (c) => c.id === result.winnerId
+  );
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Select candidates</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Both must be analyzed (<span className="font-medium">completed</span>). Loaded from
-          your database — {completedCount} ready to compare.
+          Choose {MIN_COMPARE}–{MAX_COMPARE} analyzed candidates (
+          <span className="font-medium">completed</span>). {completedCandidates.length} ready
+          · {selectedIds.length} selected
         </p>
 
         {loadingList && (
@@ -123,32 +132,71 @@ export default function ComparePanel() {
           <p className="mt-4 text-sm text-amber-800">{listError}</p>
         )}
 
-        <form onSubmit={handleCompare} className="mt-6 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <CandidateSelect
-              label="Candidate A"
-              value={candidate1}
-              onChange={setCandidate1}
-              candidates={candidates}
-              disabled={loadingList}
-            />
-            <CandidateSelect
-              label="Candidate B"
-              value={candidate2}
-              onChange={setCandidate2}
-              candidates={candidates}
-              disabled={loadingList}
-            />
-          </div>
+        {!loadingList && candidates.length > 0 && (
+          <ul className="mt-4 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-slate-100 p-2">
+            {candidates.map((item) => {
+              const isCompleted = item.status === 'completed';
+              const isSelected = selectedIds.includes(item.id);
+              const atMax = selectedIds.length >= MAX_COMPARE && !isSelected;
 
+              return (
+                <li key={item.id}>
+                  <label
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition ${
+                      isSelected
+                        ? 'border-slate-900 bg-slate-50'
+                        : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'
+                    } ${!isCompleted || atMax ? 'cursor-not-allowed opacity-50' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={!isCompleted || atMax}
+                      onChange={() => toggleCandidate(item.id)}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-slate-900">
+                        {item.name || 'Unnamed'}
+                      </span>
+                      {item.growthScore != null && item.scoreBand && (
+                        <span className="ml-2 text-xs tabular-nums text-slate-500">
+                          {item.growthScore}/100
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        isCompleted
+                          ? 'bg-emerald-50 text-emerald-800'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {item.status || 'unknown'}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <form onSubmit={handleCompare} className="mt-6 space-y-4">
           {error && <ErrorAlert message={error} />}
 
           <button
             type="submit"
-            disabled={loading || loadingList}
-            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            disabled={
+              loading ||
+              loadingList ||
+              selectedIds.length < MIN_COMPARE ||
+              selectedIds.length > MAX_COMPARE
+            }
+            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Comparing…' : 'Compare candidates'}
+            {loading
+              ? 'Comparing…'
+              : `Compare ${selectedIds.length || ''} candidate${selectedIds.length === 1 ? '' : 's'}`.trim()}
           </button>
         </form>
       </section>
@@ -159,12 +207,10 @@ export default function ComparePanel() {
         <section className="space-y-6">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-              Recommended hire
+              Recommended hire (#1)
             </p>
             <p className="mt-2 text-xl font-bold text-emerald-900">
-              {result.winner === 'candidate1'
-                ? result.comparison.candidate1.name
-                : result.comparison.candidate2.name}
+              {winnerProfile?.name || 'Unnamed'}
             </p>
           </div>
 
@@ -172,17 +218,14 @@ export default function ComparePanel() {
             {result.comparison.recommendation}
           </p>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <CompareCard
-              label="Candidate A"
-              profile={result.comparison.candidate1}
-              isWinner={result.winner === 'candidate1'}
-            />
-            <CompareCard
-              label="Candidate B"
-              profile={result.comparison.candidate2}
-              isWinner={result.winner === 'candidate2'}
-            />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {result.comparison.candidates.map((profile) => (
+              <CompareCard
+                key={profile.id}
+                profile={profile}
+                isWinner={profile.id === result.winnerId}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -190,32 +233,7 @@ export default function ComparePanel() {
   );
 }
 
-function CandidateSelect({ label, value, onChange, candidates, disabled }) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-50"
-      >
-        <option value="">Select a candidate…</option>
-        {candidates.map((item) => (
-          <option
-            key={item.id}
-            value={item.id}
-            disabled={item.status !== 'completed'}
-          >
-            {item.name || 'Unnamed'}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function CompareCard({ label, profile, isWinner }) {
+function CompareCard({ profile, isWinner }) {
   return (
     <article
       className={`rounded-2xl border bg-white p-6 shadow-sm ${
@@ -223,10 +241,12 @@ function CompareCard({ label, profile, isWinner }) {
       }`}
     >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Rank #{profile.rank}
+        </p>
         {isWinner && (
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-            Winner
+            Top pick
           </span>
         )}
       </div>
@@ -236,11 +256,11 @@ function CompareCard({ label, profile, isWinner }) {
         href={`/candidates/${profile.id}`}
         className="mt-1 inline-block font-mono text-xs text-slate-400 hover:text-slate-600"
       >
-        {profile.id}
+        View profile
       </Link>
 
       <div className="mt-4">
-        <ScoreBadge band={profile.scoreBand} score={profile.growthScore} />
+        <GrowthScoreDisplay score={profile.growthScore} band={profile.scoreBand} />
       </div>
 
       <dl className="mt-6 space-y-2 text-sm">

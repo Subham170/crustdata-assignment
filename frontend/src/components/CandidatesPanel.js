@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { deleteCandidate, listCandidates, updateCandidate } from '@/lib/api';
 import { removeRecentCandidate, updateRecentCandidate } from '@/lib/storage';
-import { getBandStyle } from '@/lib/format';
+import GrowthScoreDisplay from './GrowthScoreDisplay';
 import LoadingBlock from './LoadingBlock';
 import ErrorAlert from './ErrorAlert';
 
@@ -164,18 +164,13 @@ export default function CandidatesPanel() {
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Score</th>
+                  <th className="px-4 py-3">Growth exposure</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {candidates.map((candidate) => {
                   const status = candidate.status?.toLowerCase() || 'uploaded';
-                  const bandStyle =
-                    candidate.scoreBand && candidate.growthScore != null
-                      ? getBandStyle(candidate.scoreBand)
-                      : null;
-
                   return (
                     <tr key={candidate.id} className="hover:bg-slate-50/50">
                       <td className="px-4 py-3">
@@ -197,12 +192,13 @@ export default function CandidatesPanel() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {candidate.growthScore != null && bandStyle ? (
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${bandStyle.bg} ${bandStyle.text} ${bandStyle.ring}`}
-                          >
-                            {candidate.growthScore} · {bandStyle.label}
-                          </span>
+                        {candidate.growthScore != null && candidate.scoreBand ? (
+                          <GrowthScoreDisplay
+                            score={candidate.growthScore}
+                            band={candidate.scoreBand}
+                          />
+                        ) : candidate.status === 'completed' ? (
+                          <span className="text-xs text-slate-500">No score</span>
                         ) : (
                           <span className="text-slate-400">—</span>
                         )}

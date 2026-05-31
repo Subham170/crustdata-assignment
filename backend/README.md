@@ -33,7 +33,7 @@ Server URL: `http://localhost:${PORT}` (default **3001**; set `PORT=8000` in `.e
 | `POST` | `/api/candidates/analyze` | Full pipeline (parse → enrich → score → AI) |
 | `GET` | `/api/candidates` | List recent candidates (for compare dropdown) |
 | `GET` | `/api/candidates/:id` | Get candidate, experiences, latest report |
-| `POST` | `/api/candidates/compare` | Compare two analyzed candidates |
+| `POST` | `/api/candidates/compare` | Compare 2–10 analyzed candidates (ranked) |
 
 ### Score bands
 
@@ -108,12 +108,14 @@ Both must be analyzed first (`status: completed`).
 
 ```json
 {
-  "candidate1": "UUID_OF_CANDIDATE_A",
-  "candidate2": "UUID_OF_CANDIDATE_B"
+  "candidateIds": [
+    "UUID_OF_CANDIDATE_A",
+    "UUID_OF_CANDIDATE_B"
+  ]
 }
 ```
 
-IDs must be different UUIDs.
+Send **2–10** unique UUIDs (all must be `completed` / analyzed). Response includes `winnerId`, ranked `comparison.candidates`, and `comparison.recommendation`.
 
 ---
 

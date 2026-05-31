@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000). Backend should run at `http
 |-------|---------|
 | `/` | Upload resume |
 | `/candidates/[id]` | View profile & run analysis |
-| `/compare` | Compare two analyzed candidates |
+| `/compare` | Compare 2–10 analyzed candidates (multi-select) |
 
 ## Scripts
 

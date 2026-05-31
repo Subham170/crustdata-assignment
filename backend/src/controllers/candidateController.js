@@ -67,7 +67,7 @@ export const analyzeCandidate = asyncHandler(async (req, res) => {
 });
 
 export const compareCandidate = asyncHandler(async (req, res) => {
-  const result = await compareCandidates(req.body.candidate1, req.body.candidate2);
+  const result = await compareCandidates(req.body.candidateIds);
   res.json(result);
 });
 

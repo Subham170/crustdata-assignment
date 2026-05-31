@@ -71,11 +71,11 @@ export async function getCandidate(candidateId) {
   return parseResponse(response);
 }
 
-export async function compareCandidates(candidate1, candidate2) {
+export async function compareCandidates(candidateIds) {
   const response = await fetch(`${API_BASE}/api/candidates/compare`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidate1, candidate2 }),
+    body: JSON.stringify({ candidateIds }),
   });
 
   return parseResponse(response);

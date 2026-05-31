@@ -25,12 +25,14 @@ const analyzeBodySchema = z.object({
 
 const compareBodySchema = z
   .object({
-    candidate1: z.string().uuid('candidate1 must be a valid UUID'),
-    candidate2: z.string().uuid('candidate2 must be a valid UUID'),
+    candidateIds: z
+      .array(z.string().uuid('Each candidate ID must be a valid UUID'))
+      .min(2, 'Select at least 2 candidates')
+      .max(10, 'You can compare at most 10 candidates'),
   })
-  .refine((data) => data.candidate1 !== data.candidate2, {
-    message: 'candidate1 and candidate2 must be different',
-    path: ['candidate2'],
+  .refine((data) => new Set(data.candidateIds).size === data.candidateIds.length, {
+    message: 'Duplicate candidate IDs are not allowed',
+    path: ['candidateIds'],
   });
 
 router.post('/upload', handleResumeUpload, uploadCandidate);

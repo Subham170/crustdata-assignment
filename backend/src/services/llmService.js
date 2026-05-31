@@ -122,12 +122,12 @@ export function buildFallbackInsights(payload) {
   };
 }
 
-const COMPARE_PROMPT = `Compare two candidates for hiring based on growth exposure JSON.
+const COMPARE_PROMPT = `Compare candidates for hiring based on growth exposure JSON (ranked list).
 Return JSON only:
 {
-  "recommendation": "2-3 sentences explaining who is stronger and why"
+  "recommendation": "2-4 sentences: who is the top hire, how runners-up compare, grounded in scores/metrics"
 }
-Use only provided metrics.`;
+Use only provided metrics. Mention the winner by name.`;
 
 /**
  * @param {object} comparisonPayload
@@ -160,9 +160,18 @@ export async function generateComparisonRecommendation(comparisonPayload) {
   return buildFallbackComparisonRecommendation(comparisonPayload);
 }
 
-export function buildFallbackComparisonRecommendation({ winner, candidate1, candidate2 }) {
-  const winnerProfile = winner === 'candidate1' ? candidate1 : candidate2;
-  const loserProfile = winner === 'candidate1' ? candidate2 : candidate1;
+export function buildFallbackComparisonRecommendation({ winnerId, ranked }) {
+  const [top, ...rest] = ranked ?? [];
+  if (!top) return 'No candidates to compare.';
 
-  return `${winnerProfile.name ?? 'The selected candidate'} is the stronger hire with a Growth Exposure Score of ${winnerProfile.growthScore} (${winnerProfile.scoreBand}) vs ${loserProfile.growthScore} (${loserProfile.scoreBand}), indicating greater exposure to high-growth employers.`;
+  const topName = top.name ?? 'The top candidate';
+  if (!rest.length) {
+    return `${topName} is the recommended hire with a Growth Exposure Score of ${top.growthScore} (${top.scoreBand}).`;
+  }
+
+  const others = rest
+    .map((c) => `${c.name ?? 'Unnamed'} (${c.growthScore}, ${c.scoreBand})`)
+    .join('; ');
+
+  return `${topName} is the recommended hire with a Growth Exposure Score of ${top.growthScore} (${top.scoreBand}), ahead of ${others}, based on greater exposure to high-growth employers.`;
 }

@@ -14,7 +14,7 @@ export default function ScoreBadge({ band, score, size = 'md', variant = 'light'
         className={`inline-flex items-center gap-2 rounded-full font-semibold ring-1 ring-inset ${style.bg} ${style.text} ${style.ring} ${sizeClasses}`}
       >
         <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-        {style.label}
+        {style.exposureLabel}
       </span>
       {score != null && (
         <span className={`text-3xl font-bold tracking-tight ${scoreColor}`}>{score}</span>

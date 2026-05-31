@@ -6,52 +6,69 @@ import {
 } from './llmService.js';
 import { monthsBetween } from '../utils/dateUtils.js';
 
+export const MIN_COMPARE_CANDIDATES = 2;
+export const MAX_COMPARE_CANDIDATES = 10;
+
 /**
- * @param {string} candidate1Id
- * @param {string} candidate2Id
+ * @param {string[]} candidateIds 2–10 unique UUIDs
  */
-export async function compareCandidates(candidate1Id, candidate2Id) {
-  const [candidate1, candidate2] = await Promise.all([
-    getCandidateById(candidate1Id),
-    getCandidateById(candidate2Id),
-  ]);
+export async function compareCandidates(candidateIds) {
+  const uniqueIds = [...new Set(candidateIds)];
 
-  if (!candidate1) {
-    throw notFound('Candidate 1 not found');
+  if (uniqueIds.length < MIN_COMPARE_CANDIDATES) {
+    throw badRequest(`Select at least ${MIN_COMPARE_CANDIDATES} candidates to compare`);
   }
-  if (!candidate2) {
-    throw notFound('Candidate 2 not found');
+  if (uniqueIds.length > MAX_COMPARE_CANDIDATES) {
+    throw badRequest(`You can compare at most ${MAX_COMPARE_CANDIDATES} candidates`);
   }
-
-  const [report1] = candidate1.growthReports;
-  const [report2] = candidate2.growthReports;
-
-  if (!report1 || !report2) {
-    throw badRequest('Both candidates must be analyzed before comparison');
+  if (uniqueIds.length !== candidateIds.length) {
+    throw badRequest('Duplicate candidate IDs are not allowed');
   }
 
-  const profile1 = buildComparisonProfile(candidate1, report1);
-  const profile2 = buildComparisonProfile(candidate2, report2);
-  const winner = pickWinner(profile1, profile2);
+  const candidates = await Promise.all(uniqueIds.map((id) => getCandidateById(id)));
 
-  const recommendation = await generateComparisonRecommendation({
-    winner,
-    candidate1: profile1,
-    candidate2: profile2,
+  for (let i = 0; i < uniqueIds.length; i++) {
+    if (!candidates[i]) {
+      throw notFound(`Candidate not found: ${uniqueIds[i]}`);
+    }
+    const [report] = candidates[i].growthReports;
+    if (!report) {
+      throw badRequest(
+        `All candidates must be analyzed before comparison (${candidates[i].name ?? uniqueIds[i]} is not completed)`
+      );
+    }
+  }
+
+  const profiles = candidates.map((candidate) => {
+    const [report] = candidate.growthReports;
+    return buildComparisonProfile(candidate, report);
   });
 
+  const ranked = rankProfiles(profiles).map((profile, index) => ({
+    ...profile,
+    rank: index + 1,
+  }));
+
+  const winnerId = ranked[0].id;
+
+  const recommendation = await generateComparisonRecommendation({
+    winnerId,
+    ranked,
+    candidateCount: ranked.length,
+  });
+
+  const recommendationText =
+    recommendation ||
+    buildFallbackComparisonRecommendation({
+      winnerId,
+      ranked,
+    });
+
   return {
-    winner,
+    winnerId,
     comparison: {
-      candidate1: profile1,
-      candidate2: profile2,
-      recommendation:
-        recommendation ||
-        buildFallbackComparisonRecommendation({
-          winner,
-          candidate1: profile1,
-          candidate2: profile2,
-        }),
+      recommendation: recommendationText,
+      candidates: ranked,
     },
   };
 }
@@ -92,21 +109,29 @@ function buildComparisonProfile(candidate, report) {
   };
 }
 
+/**
+ * @param {Array<{ growthScore: number, avgEmployerGrowth6m?: number | null, careerStabilityMonths?: number }>} profiles
+ */
+export function rankProfiles(profiles) {
+  return [...profiles].sort(compareProfiles);
+}
+
+export function compareProfiles(a, b) {
+  if (b.growthScore !== a.growthScore) {
+    return b.growthScore - a.growthScore;
+  }
+
+  const g1 = b.avgEmployerGrowth6m ?? 0;
+  const g2 = a.avgEmployerGrowth6m ?? 0;
+  if (g1 !== g2) return g1 - g2;
+
+  return (b.careerStabilityMonths ?? 0) - (a.careerStabilityMonths ?? 0);
+}
+
+/** @deprecated Use rankProfiles; kept for tests */
 export function pickWinner(profile1, profile2) {
-  if (profile1.growthScore !== profile2.growthScore) {
-    return profile1.growthScore > profile2.growthScore ? 'candidate1' : 'candidate2';
-  }
-
-  const g1 = profile1.avgEmployerGrowth6m ?? 0;
-  const g2 = profile2.avgEmployerGrowth6m ?? 0;
-
-  if (g1 !== g2) {
-    return g1 > g2 ? 'candidate1' : 'candidate2';
-  }
-
-  return profile1.careerStabilityMonths >= profile2.careerStabilityMonths
-    ? 'candidate1'
-    : 'candidate2';
+  const ranked = rankProfiles([profile1, profile2]);
+  return ranked[0] === profile1 ? 'candidate1' : 'candidate2';
 }
 
 function inferReadiness(growthScore) {
