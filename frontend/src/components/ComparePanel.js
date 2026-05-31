@@ -42,7 +42,7 @@ export default function ComparePanel() {
         setListError(
           fallback.length
             ? `Could not load from server (${err.message}). Showing browser-only recent list.`
-            : `Could not load candidates (${err.message}). Upload & analyze resumes first, or paste UUIDs below.`
+            : `Could not load candidates (${err.message}). Upload & analyze resumes first.`
         );
       } finally {
         setLoadingList(false);
@@ -70,7 +70,7 @@ export default function ComparePanel() {
     event.preventDefault();
 
     if (!candidate1 || !candidate2) {
-      setError('Select or enter both candidate IDs.');
+      setError('Select both candidates.');
       return;
     }
 
@@ -114,8 +114,7 @@ export default function ComparePanel() {
               <Link href="/" className="font-medium text-slate-900 underline">
                 home page
               </Link>
-              , run <strong>Analyze</strong>, then return here. Or paste UUIDs below if you
-              analyzed via Postman.
+              , run <strong>Analyze</strong>, then return here.
             </p>
           </div>
         )}
@@ -208,31 +207,12 @@ function CandidateSelect({ label, value, onChange, candidates, disabled }) {
             value={item.id}
             disabled={item.status !== 'completed'}
           >
-            {formatCandidateOption(item)}
+            {item.name || 'Unnamed'}
           </option>
         ))}
       </select>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Or paste candidate UUID"
-        className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-slate-900/10"
-      />
     </label>
   );
-}
-
-function formatCandidateOption(item) {
-  const name = item.name || 'Unnamed';
-  const status = item.status || 'unknown';
-  if (status === 'completed' && item.growthScore != null) {
-    return `${name} — score ${item.growthScore} (${status})`;
-  }
-  if (status !== 'completed') {
-    return `${name} — ${status} (run analyze first)`;
-  }
-  return `${name} (${status})`;
 }
 
 function CompareCard({ label, profile, isWinner }) {
