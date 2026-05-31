@@ -19,6 +19,10 @@ export function validationError(details) {
   return new AppError('Validation failed', 400, details);
 }
 
+export function unprocessableEntity(message = 'Unprocessable entity') {
+  return new AppError(message, 422);
+}
+
 export function errorHandler(err, _req, res, _next) {
   if (err instanceof AppError) {
     const body = { error: err.message };

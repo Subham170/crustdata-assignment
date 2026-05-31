@@ -1,4 +1,5 @@
 import { prisma } from '../config/db.js';
+import { parseResumeDate } from '../utils/dateUtils.js';
 
 export async function createCandidate({ resumeUrl, linkedinUrl }) {
   return prisma.candidate.create({
@@ -22,6 +23,55 @@ export async function getCandidateById(id) {
         take: 1,
       },
     },
+  });
+}
+
+export async function updateCandidateStatus(candidateId, status) {
+  return prisma.candidate.update({
+    where: { id: candidateId },
+    data: { status },
+  });
+}
+
+/**
+ * @param {string} candidateId
+ * @param {{ name: string | null, email: string | null, experiences: Array<{ companyName: string, role: string | null, startDate: string | null, endDate: string | null }> }} parsed
+ */
+export async function persistParsedResume(candidateId, parsed) {
+  const experienceRows = parsed.experiences.map((exp) => ({
+    companyName: exp.companyName,
+    role: exp.role,
+    startDate: parseResumeDate(exp.startDate),
+    endDate: parseResumeDate(exp.endDate),
+  }));
+
+  return prisma.$transaction(async (tx) => {
+    await tx.experience.deleteMany({ where: { candidateId } });
+
+    await tx.candidate.update({
+      where: { id: candidateId },
+      data: {
+        name: parsed.name,
+        email: parsed.email,
+        status: 'UPLOADED',
+      },
+    });
+
+    if (experienceRows.length > 0) {
+      await tx.experience.createMany({
+        data: experienceRows.map((row) => ({
+          candidateId,
+          ...row,
+        })),
+      });
+    }
+
+    return tx.candidate.findUnique({
+      where: { id: candidateId },
+      include: {
+        experiences: { orderBy: { startDate: 'desc' } },
+      },
+    });
   });
 }
 
