@@ -25,7 +25,11 @@ export default function UploadSection() {
 
     try {
       const result = await uploadResume(file, linkedinUrl.trim());
-      addRecentCandidate({ id: result.candidateId, name: null, email: null });
+      addRecentCandidate({
+        id: result.candidateId,
+        name: result.name,
+        email: result.email,
+      });
       router.push(`/candidates/${result.candidateId}`);
     } catch (err) {
       setError(err.message);

@@ -39,8 +39,18 @@ export async function previewResumeFromFile(filePath) {
     logger.warn({ textLength: text?.length ?? 0 }, 'PDF text extraction returned little content');
     return { name: null, email: null };
   }
+
   const parsed = parseResumeText(text);
-  return { name: parsed.name, email: parsed.email };
+  let name = parsed.name;
+  let email = parsed.email;
+
+  if (!name) {
+    const llm = await extractResumeWithLlm(text);
+    name = llm?.name ?? name;
+    email = email ?? llm?.email ?? null;
+  }
+
+  return { name, email };
 }
 
 /**
@@ -136,12 +146,10 @@ function normalizeText(text) {
 }
 
 function insertLineBreaks(text) {
-  return text
-    .replace(
-      /\b(EXPERIENCE|WORK\s+HISTORY|PROFESSIONAL\s+EXPERIENCE|EMPLOYMENT(?:\s+HISTORY)?|CAREER\s+HISTORY|INTERNSHIPS?|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS)\b/gi,
-      '\n$1\n'
-    )
-    .replace(MONTH_YEAR_RANGE_REGEX, '\n$1');
+  return text.replace(
+    /\b(EXPERIENCE|WORK\s+HISTORY|PROFESSIONAL\s+EXPERIENCE|EMPLOYMENT(?:\s+HISTORY)?|CAREER\s+HISTORY|INTERNSHIPS?|EDUCATION|PROJECTS|SKILLS|CERTIFICATIONS)\b/gi,
+    '\n$1\n'
+  );
 }
 
 function extractEmail(text) {
@@ -397,6 +405,30 @@ function dedupeExperiences(experiences) {
     seen.add(key);
     return true;
   });
+}
+
+/** Fallback when line-based parsing finds no jobs (common with flat PDF text). */
+function extractExperiencesByDateScan(text) {
+  const experiences = [];
+  const pattern =
+    /([A-Za-z0-9][A-Za-z0-9\s&.'(),-]{2,100}?)\s+((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4})\s*[-–—to]+\s*((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{4}|Present|Current|Now|Ongoing)/gi;
+
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const companyName = cleanCompanyName(
+      match[1].replace(/\s*[-–—]+\s*[^-–—]+$/, '').trim()
+    );
+    if (!companyName || !isValidCompanyName(companyName)) continue;
+
+    experiences.push({
+      companyName,
+      role: null,
+      startDate: parseResumeDate(match[2]),
+      endDate: parseResumeDate(match[3]),
+    });
+  }
+
+  return dedupeExperiences(experiences);
 }
 
 function formatYearMonth(date) {

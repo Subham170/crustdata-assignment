@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { asyncHandler, notFound, validationError } from '../middlewares/errorHandler.js';
-import { getResumeRelativePath } from '../middlewares/upload.js';
+import { getResumeAbsolutePath, getResumeRelativePath } from '../middlewares/upload.js';
 import { sanitizeUrl } from '../utils/sanitize.js';
 import {
   createCandidate,
   formatCandidateResponse,
   getCandidateById,
   listCandidates,
+  updateCandidateProfile,
 } from '../services/candidateService.js';
+import { previewResumeFromFile } from '../services/resumeParserService.js';
 import { analyzeCandidate as runCandidateAnalysis } from '../services/analysisOrchestrator.js';
 import { compareCandidates } from '../services/comparisonService.js';
 
@@ -34,9 +36,26 @@ export const uploadCandidate = asyncHandler(async (req, res) => {
 
   const candidate = await createCandidate({ resumeUrl, linkedinUrl });
 
+  let name = null;
+  let email = null;
+
+  try {
+    const preview = await previewResumeFromFile(getResumeAbsolutePath(resumeUrl));
+    name = preview.name;
+    email = preview.email;
+
+    if (name || email) {
+      await updateCandidateProfile(candidate.id, { name, email });
+    }
+  } catch {
+    // Upload still succeeds if preview parse fails; analyze will retry parsing.
+  }
+
   res.status(201).json({
     candidateId: candidate.id,
     status: candidate.status.toLowerCase(),
+    name,
+    email,
   });
 });
 

@@ -11,6 +11,22 @@ export async function createCandidate({ resumeUrl, linkedinUrl }) {
   });
 }
 
+/**
+ * @param {string} candidateId
+ * @param {{ name?: string | null, email?: string | null }} profile
+ */
+export async function updateCandidateProfile(candidateId, profile) {
+  const data = {};
+  if (profile.name !== undefined) data.name = profile.name;
+  if (profile.email !== undefined) data.email = profile.email;
+  if (Object.keys(data).length === 0) return null;
+
+  return prisma.candidate.update({
+    where: { id: candidateId },
+    data,
+  });
+}
+
 export async function listCandidates(limit = 20) {
   const candidates = await prisma.candidate.findMany({
     orderBy: { updatedAt: 'desc' },

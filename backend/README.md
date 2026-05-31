@@ -61,7 +61,7 @@ Server URL: `http://localhost:${PORT}` (default **3001**; set `PORT=8000` in `.e
 | `resume` | **File** | Yes | `resume.pdf` |
 | `linkedinUrl` | Text | No | `https://www.linkedin.com/in/username` |
 
-**Response:** copy `candidateId` from the JSON body.
+**Response:** `{ candidateId, status, name, email }` — name/email are extracted from the PDF on upload (saved to DB).
 
 ---
 
